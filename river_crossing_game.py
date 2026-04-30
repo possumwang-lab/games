@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import asyncio
 import sys
 import math
 from array import array
@@ -58,8 +61,11 @@ class RiverCrossingGame:
         pygame.init()
         self.audio_enabled = True
         try:
-            pygame.mixer.init(frequency=22050, size=-16, channels=1)
-        except pygame.error:
+            mixer = getattr(pygame, "mixer", None)
+            if mixer is None:
+                raise pygame.error("pygame mixer is unavailable")
+            mixer.init(frequency=22050, size=-16, channels=1)
+        except (AttributeError, pygame.error):
             self.audio_enabled = False
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("River Crossing Puzzle")
@@ -148,8 +154,12 @@ class RiverCrossingGame:
         else:
             self.message = "Safe crossing so far. Plan the next trip."
 
-    def build_tone_sound(self, notes: list[float], note_duration: float = 0.12, volume: float = 0.18, sample_rate: int = 22050) -> pygame.mixer.Sound | None:
+    def build_tone_sound(self, notes: list[float], note_duration: float = 0.12, volume: float = 0.18, sample_rate: int = 22050) -> object | None:
         if not self.audio_enabled:
+            return None
+        mixer = getattr(pygame, "mixer", None)
+        if mixer is None:
+            self.audio_enabled = False
             return None
         samples = array("h")
         fade_samples = max(1, int(sample_rate * 0.02))
@@ -171,9 +181,13 @@ class RiverCrossingGame:
                     value *= 0.6
                 samples.append(int(32767 * volume * envelope * value))
 
-        return pygame.mixer.Sound(buffer=samples.tobytes())
+        try:
+            return mixer.Sound(buffer=samples.tobytes())
+        except (AttributeError, pygame.error):
+            self.audio_enabled = False
+            return None
 
-    def build_sounds(self) -> dict[str, pygame.mixer.Sound | None]:
+    def build_sounds(self) -> dict[str, object | None]:
         return {
             "click": self.build_tone_sound([660], note_duration=0.06, volume=0.12),
             "cross": self.build_tone_sound([392, 494], note_duration=0.08, volume=0.14),
@@ -184,7 +198,7 @@ class RiverCrossingGame:
 
     def play_sound(self, sound_name: str) -> None:
         sound = self.sounds.get(sound_name)
-        if sound is not None:
+        if sound is not None and hasattr(sound, "play"):
             sound.play()
 
     def button_rect(self, index: int) -> pygame.Rect:
@@ -473,23 +487,46 @@ class RiverCrossingGame:
                 self.toggle_entity(entity)
                 return
 
-    def run(self) -> None:
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_r:
-                        self.reset()
-                    if event.key == pygame.K_SPACE:
-                        self.move_boat()
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    self.handle_click(event.pos)
+    def process_events(self) -> bool:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    self.reset()
+                if event.key == pygame.K_SPACE:
+                    self.move_boat()
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                self.handle_click(event.pos)
+        return True
 
-            self.draw_scene()
-            pygame.display.flip()
+    def draw_frame(self) -> None:
+        self.draw_scene()
+        pygame.display.flip()
+
+    def run(self) -> None:
+        running = True
+        while running:
+            running = self.process_events()
+            self.draw_frame()
             self.clock.tick(FPS)
+
+        pygame.quit()
+        sys.exit()
+
+    async def run_web(self) -> None:
+        running = True
+        while running:
+            running = self.process_events()
+            self.draw_frame()
+            self.clock.tick(FPS)
+            await asyncio.sleep(0)
+
+        pygame.quit()
+
+
+async def main() -> None:
+    await RiverCrossingGame().run_web()
 
 
 if __name__ == "__main__":
