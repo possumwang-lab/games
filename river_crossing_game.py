@@ -7,7 +7,6 @@ from array import array
 from pathlib import Path
 import pygame
 
-
 WIDTH, HEIGHT = 1100, 620
 FPS = 60
 
@@ -525,9 +524,16 @@ class RiverCrossingGame:
         pygame.quit()
 
 
-async def main() -> None:
-    await RiverCrossingGame().run_web()
+async def main():
+    game = RiverCrossingGame()
+    await game.run_web()
 
 
 if __name__ == "__main__":
-    RiverCrossingGame().run()
+    import sys
+
+    if sys.platform == "emscripten":
+        import asyncio
+        asyncio.run(main())
+    else:
+        RiverCrossingGame().run()
