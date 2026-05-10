@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import asyncio
@@ -7,6 +8,7 @@ from array import array
 from pathlib import Path
 import pygame
 
+LANGUAGE = "CN" # "EN" for English, "CN" for Chinese
 WIDTH, HEIGHT = 1100, 620
 FPS = 60
 
@@ -36,10 +38,17 @@ BOAT_POLE = (92, 66, 44)
 SELECTED_COLOR = (255, 239, 138)
 ASSET_DIR = Path(__file__).with_name("assets") / "river_crossing"
 
-PEASANT = "Peasant"
-WOLF = "Wolf"
-SHEEP = "Sheep"
-VEGETABLES = "Vegetables"
+if LANGUAGE == "CN":
+    PEASANT = "农夫"
+    WOLF = "狼"
+    SHEEP = "羊"
+    VEGETABLES = "蔬菜"
+else:
+    PEASANT = "Peasant"
+    WOLF = "Wolf"
+    SHEEP = "Sheep"
+    VEGETABLES = "Vegetables"
+
 ENTITY_ORDER = [PEASANT, WOLF, SHEEP, VEGETABLES]
 ENTITY_COLORS = {
     PEASANT: (247, 215, 148),
@@ -69,10 +78,18 @@ class RiverCrossingGame:
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("River Crossing Puzzle")
         self.clock = pygame.time.Clock()
-        self.title_font = pygame.font.SysFont("arial", 34, bold=True)
-        self.overlay_title_font = pygame.font.SysFont("arial", 44, bold=True)
-        self.body_font = pygame.font.SysFont("arial", 22)
-        self.small_font = pygame.font.SysFont("arial", 18)
+        if LANGUAGE == "CN":
+            font_path = "assets/fonts/NotoSansSC-Regular.otf"
+            self.body_font = pygame.font.Font(font_path, 22)
+            self.small_font = pygame.font.Font(font_path, 18)
+            self.title_font = pygame.font.Font(font_path, 34)
+            self.overlay_title_font = pygame.font.Font(font_path, 44)
+        else:
+            self.title_font = pygame.font.SysFont("arial", 34, bold=True)
+            self.overlay_title_font = pygame.font.SysFont("arial", 44, bold=True)
+            self.body_font = pygame.font.SysFont("arial", 22)
+            self.small_font = pygame.font.SysFont("arial", 18)
+
         self.entity_sprites = self.load_sprites()
         self.sounds = self.build_sounds()
         self.reset()
@@ -83,8 +100,11 @@ class RiverCrossingGame:
         self.boat_side = "right"
         self.boat_passengers = []
         self.moves = 0
+        if LANGUAGE == "CN":
+            self.message = "把所有人安全地渡到左岸。"
+        else:
+            self.message = "Move everyone safely to the left bank."
         self.state = "playing"
-        self.message = "Move everyone safely to the left bank."
         self.end_sound_played = False
 
     def bank_for_side(self, side: str) -> list[str]:
@@ -103,7 +123,10 @@ class RiverCrossingGame:
             self.play_sound("click")
             return
         if len(self.boat_passengers) >= 2:
-            self.message = "The boat can carry at most two."
+            if LANGUAGE == "CN":
+                self.message = "船最多能载两个人。"
+            else:
+                self.message = "The boat can carry at most two."
             self.play_sound("error")
             return
         bank.remove(entity)
@@ -115,11 +138,17 @@ class RiverCrossingGame:
         if self.state != "playing":
             return
         if PEASANT not in self.boat_passengers:
-            self.message = "The peasant must be on the boat."
+            if LANGUAGE == "CN":
+                self.message = "农夫必须在船上。"
+            else:
+                self.message = "The peasant must be on the boat."
             self.play_sound("error")
             return
         if not self.boat_passengers:
-            self.message = "Choose at least one passenger."
+            if LANGUAGE == "CN":
+                self.message = "请选择至少一个乘客。"
+            else:
+                self.message = "Choose at least one passenger."
             self.play_sound("error")
             return
 
@@ -134,20 +163,36 @@ class RiverCrossingGame:
         self.evaluate_state()
 
     def evaluate_state(self) -> None:
-        for bank_name, bank in (("left bank", self.left_bank), ("right bank", self.right_bank)):
+        for bank_key, bank in (("left", self.left_bank), ("right", self.right_bank)):
+
+            if LANGUAGE == "CN":
+                bank_name = "左岸" if bank_key == "left" else "右岸"
+            else:
+                bank_name = "left bank" if bank_key == "left" else "right bank"
+
             if PEASANT not in bank:
                 if WOLF in bank and SHEEP in bank:
                     self.state = "lost"
-                    self.message = f"The wolf ate the sheep on the {bank_name}."
+                    if LANGUAGE == "CN":
+                        self.message = f"狼在{bank_name}吃了羊。"
+                    else:
+                        self.message = f"The wolf ate the sheep on the {bank_name}."
                     return
+
                 if SHEEP in bank and VEGETABLES in bank:
                     self.state = "lost"
-                    self.message = f"The sheep ate the vegetables on the {bank_name}."
+                    if LANGUAGE == "CN":
+                        self.message = f"羊在{bank_name}吃了蔬菜。"
+                    else:
+                        self.message = f"The sheep ate the vegetables on the {bank_name}."
                     return
 
         if len(self.left_bank) == len(ENTITY_ORDER):
             self.state = "won"
-            self.message = f"Puzzle solved in {self.moves} moves."
+            if LANGUAGE == "CN":
+                self.message = f"谜题在 {self.moves} 步内解决。"
+            else:
+                self.message = f"Puzzle solved in {self.moves} moves."
             self.play_sound("win")
             self.end_sound_played = True
         else:
@@ -225,6 +270,7 @@ class RiverCrossingGame:
                 sprites[entity] = pygame.transform.smoothscale(sprite, (56, 56))
         return sprites
 
+        return sprites
     def draw_scene(self) -> None:
         self.screen.fill(BG_COLOR)
         pygame.draw.rect(self.screen, BANK_COLOR, (280, 0, 260, HEIGHT))
@@ -246,17 +292,28 @@ class RiverCrossingGame:
 
         msg_surface = self.small_font.render(self.message, True, status_color)
         self.screen.blit(msg_surface, (38, 86))
-
-        move_surface = self.body_font.render(f"Moves: {self.moves}", True, TEXT_COLOR)
+        if LANGUAGE == "CN":
+            move_text = f"已过河次数：{self.moves}"
+        else:
+            move_text = f"Moves: {self.moves}"
+        move_surface = self.body_font.render(move_text, True, TEXT_COLOR)
         self.screen.blit(move_surface, (38, 118))
-
-        info_lines = [
-            "Boat capacity: 2",
-            "Peasant must ride the boat",
-            "Wolf cannot stay with sheep",
-            "Sheep cannot stay with vegetables",
+        if LANGUAGE == "CN":
+            info_lines = [
+                "船的容量：2",
+                "农夫必须在船上",
+                "狼不能和羊单独在一起",
+                "羊不能和蔬菜单独在一起",
+            ]
+            rules_title = self.small_font.render("规则", True, TEXT_COLOR)
+        else:
+            info_lines = [
+                "Boat capacity: 2",
+                "Peasant must ride the boat",
+                "Wolf cannot stay with sheep",
+                "Sheep cannot stay with vegetables",
         ]
-        rules_title = self.small_font.render("Rules", True, TEXT_COLOR)
+            rules_title = self.small_font.render("Rules", True, TEXT_COLOR)
         self.screen.blit(rules_title, (38, 150))
         for i, line in enumerate(info_lines):
             line_surface = self.small_font.render(line, True, TEXT_COLOR)
@@ -306,17 +363,27 @@ class RiverCrossingGame:
         move_color = BUTTON_HOVER if move_rect.collidepoint(mouse_pos) else BUTTON_COLOR
         pygame.draw.rect(self.screen, move_color, move_rect, border_radius=12)
         pygame.draw.rect(self.screen, PANEL_BORDER, move_rect, 2, border_radius=12)
-        move_text = "Cross to Left" if self.boat_side == "right" else "Cross to Right"
+        if LANGUAGE == "CN":
+             move_text = "过河到左岸" if self.boat_side == "right" else "过河到右岸"
+        else:
+            move_text = "Cross to Left" if self.boat_side == "right" else "Cross to Right"
         self.draw_text_center(move_text, self.body_font, TEXT_COLOR, move_rect)
 
         reset_color = (223, 227, 234) if reset_rect.collidepoint(mouse_pos) else (205, 210, 219)
         pygame.draw.rect(self.screen, reset_color, reset_rect, border_radius=10)
         pygame.draw.rect(self.screen, PANEL_BORDER, reset_rect, 2, border_radius=10)
-        self.draw_text_center("Restart", self.body_font, TEXT_COLOR, reset_rect)
+        if LANGUAGE == "CN":
+            self.draw_text_center("重新开始", self.body_font, TEXT_COLOR, reset_rect)
+        else:
+            self.draw_text_center("Restart", self.body_font, TEXT_COLOR, reset_rect)
 
     def draw_banks(self) -> None:
-        left_title = self.body_font.render("Left Bank", True, TEXT_COLOR)
-        right_title = self.body_font.render("Right Bank", True, TEXT_COLOR)
+        if LANGUAGE == "CN":
+            left_title = self.body_font.render("左岸", True, TEXT_COLOR)
+            right_title = self.body_font.render("右岸", True, TEXT_COLOR)
+        else:
+            left_title = self.body_font.render("Left Bank", True, TEXT_COLOR)
+            right_title = self.body_font.render("Right Bank", True, TEXT_COLOR)
         self.screen.blit(left_title, (330, 28))
         self.screen.blit(right_title, (870, 28))
 
@@ -365,8 +432,10 @@ class RiverCrossingGame:
         passenger_positions = [(boat_center_x - 34, BOAT_Y - 20), (boat_center_x + 34, BOAT_Y - 20)]
         for entity, pos in zip(self.boat_passengers, passenger_positions):
             self.draw_entity(entity, pos[0], pos[1], on_boat=True)
-
-        boat_label = self.small_font.render("Boat", True, TEXT_COLOR)
+        if LANGUAGE == "CN":
+            boat_label = self.small_font.render("船", True, TEXT_COLOR)
+        else:
+            boat_label = self.small_font.render("Boat", True, TEXT_COLOR)
         self.screen.blit(boat_label, (boat_center_x - boat_label.get_width() // 2, BOAT_Y + 52))
 
     def draw_entity(self, entity: str, x: int, y: int, on_boat: bool = False) -> None:
@@ -458,7 +527,10 @@ class RiverCrossingGame:
 
         card = pygame.Rect(340, 180, 420, 190)
         accent_color = LOSS_COLOR if self.state == "lost" else WIN_COLOR
-        title_text = "Game Over" if self.state == "lost" else "You Win"
+        if LANGUAGE == "CN":
+            title_text = "游戏结束" if self.state == "lost" else "你赢了" 
+        else:
+            title_text = "Game Over" if self.state == "lost" else "You Win"
 
         pygame.draw.rect(self.screen, PANEL_COLOR, card, border_radius=18)
         pygame.draw.rect(self.screen, accent_color, card, 5, border_radius=18)
@@ -468,8 +540,10 @@ class RiverCrossingGame:
 
         message_surface = self.body_font.render(self.message, True, TEXT_COLOR)
         self.screen.blit(message_surface, message_surface.get_rect(center=(card.centerx, card.y + 102)))
-
-        hint_surface = self.small_font.render("Press R or click Restart to play again.", True, TEXT_COLOR)
+        if LANGUAGE == "CN":
+            hint_surface = self.small_font.render("按 R 键或点击重新开始再次挑战。", True, TEXT_COLOR)
+        else:
+            hint_surface = self.small_font.render("Press R or click Restart to play again.", True, TEXT_COLOR)
         self.screen.blit(hint_surface, hint_surface.get_rect(center=(card.centerx, card.y + 148)))
 
     def handle_click(self, pos: tuple[int, int]) -> None:
